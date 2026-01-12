@@ -12,8 +12,9 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 # Dictionary to store timers for each user
 user_timers = {}
 
-# Music URL - استخدم رابط مباشر للموسيقى
-MUSIC_URL = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+# Music folder path
+MUSIC_FOLDER = 'music'
+MUSIC_FILE = 'music/song.mp3'
 
 async def move_to_afk(member, afk_channel):
     try:
@@ -52,12 +53,8 @@ async def join_and_play_music(afk_channel):
             print("🎵 الموسيقى تعمل بالفعل")
             return
         
-        # تشغيل الموسيقى من الرابط
-        audio_source = discord.FFmpegPCMAudio(
-            MUSIC_URL,
-            before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
-            options="-vn"
-        )
+        # تشغيل الموسيقى من الملف المحلي
+        audio_source = discord.FFmpegPCMAudio(MUSIC_FILE)
         vc.play(audio_source, after=lambda e: print(f"🎵 انتهت الموسيقى" if e is None else f"❌ خطأ: {e}"))
         print(f"🎶 تشغيل الموسيقى...")
         
