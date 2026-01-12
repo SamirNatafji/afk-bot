@@ -6,6 +6,7 @@ from config import TOKEN, AFK_CHANNEL_ID
 
 intents = discord.Intents.default()
 intents.voice_states = True
+intents.message_content = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
@@ -94,13 +95,15 @@ async def on_voice_state_update(member, before, after):
 
     # If user joins the AFK channel, send a message and play music
     if after.channel == afk_channel and before.channel != afk_channel:
-        try:
-            await member.send("goodnight darling <3")
-            print(f"Sent welcome message to {member}")
-        except discord.Forbidden:
-            print(f"Cannot send DM to {member}: insufficient permissions")
-        except Exception as e:
-            print(f"Error sending DM to {member}: {e}")
+        # لا نرسل رسالة للبوت نفسه
+        if not member.bot:
+            try:
+                await member.send("goodnight darling <3")
+                print(f"Sent welcome message to {member}")
+            except discord.Forbidden:
+                print(f"Cannot send DM to {member}: insufficient permissions")
+            except Exception as e:
+                print(f"Error sending DM to {member}: {e}")
 
         # البوت يدخل ويشغل الموسيقى
         print(f"{member} دخل قناة AFK، البوت يدخل الآن...")
