@@ -1,8 +1,0 @@
-[nixpacks]
-providers = ["python"]
-
-[nixpacks.build]
-pkgs = ["ffmpeg-full"]
-
-[build]
-cmd = "pip install -r requirements.txt"
