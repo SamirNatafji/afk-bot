@@ -13,9 +13,6 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 # Dictionary to store timers for each user
 user_timers = {}
 
-# Path to music folder
-MUSIC_FOLDER = 'music'
-
 async def move_to_afk(member, afk_channel):
     try:
         await member.move_to(afk_channel)
@@ -32,36 +29,6 @@ async def afk_timer(member, afk_channel, delay=420):  # 7 minutes = 420 seconds
     if member.id in user_timers:
         del user_timers[member.id]
         await move_to_afk(member, afk_channel)
-
-async def play_music(voice_channel):
-    try:
-        # Get list of music files
-        music_files = [f for f in os.listdir(MUSIC_FOLDER) if f.endswith(('.mp3', '.wav', '.ogg', '.flac'))]
-        if not music_files:
-            print("No music files found in music folder")
-            return
-
-        # Check if bot is already in the channel
-        vc = None
-        for client_vc in bot.voice_clients:
-            if client_vc.channel == voice_channel:
-                vc = client_vc
-                break
-
-        if vc is None:
-            # Connect to voice channel if not already connected
-            vc = await voice_channel.connect()
-            print(f"Connected to voice channel: {voice_channel.name}")
-
-        # Play the first music file
-        music_path = os.path.join(MUSIC_FOLDER, music_files[0])
-        vc.play(discord.FFmpegPCMAudio(music_path))
-        print(f"Playing music: {music_files[0]}")
-
-        # Do not disconnect, let the bot stay in the channel
-
-    except Exception as e:
-        print(f"Error playing music: {e}")
 
 @bot.command()
 async def join_afk(ctx):
@@ -94,7 +61,7 @@ async def on_voice_state_update(member, before, after):
         print("AFK channel not found")
         return
 
-    # If user joins the AFK channel, send a message and play music
+    # If user joins the AFK channel, send a message
     if after.channel == afk_channel and before.channel != afk_channel:
         try:
             await member.send("goodnight darling <3")
@@ -103,10 +70,6 @@ async def on_voice_state_update(member, before, after):
             print(f"Cannot send DM to {member}: insufficient permissions")
         except Exception as e:
             print(f"Error sending DM to {member}: {e}")
-
-        # Play music in the AFK channel
-        print(f"{member} joined AFK channel, playing music")
-        await play_music(afk_channel)
 
     # If user leaves the AFK channel, check if channel is empty and disconnect bot
     elif before.channel == afk_channel and after.channel != afk_channel:
