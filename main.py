@@ -1,0 +1,141 @@
+import os
+import discord
+import asyncio
+import os
+from discord.ext import commands
+from config import TOKEN, AFK_CHANNEL_ID
+
+intents = discord.Intents.default()
+intents.voice_states = True
+
+bot = commands.Bot(command_prefix='!', intents=intents)
+
+# Dictionary to store timers for each user
+user_timers = {}
+
+# Path to music folder
+MUSIC_FOLDER = 'music'
+
+async def move_to_afk(member, afk_channel):
+    try:
+        await member.move_to(afk_channel)
+        print(f"Moved {member} to AFK channel")
+        await member.send("goodnight darling <3")
+        print(f"Sent DM to {member}")
+    except discord.Forbidden:
+        print(f"Cannot move {member} to AFK channel or send DM: insufficient permissions")
+    except Exception as e:
+        print(f"Error moving {member}: {e}")
+
+async def afk_timer(member, afk_channel, delay=420):  # 7 minutes = 420 seconds
+    await asyncio.sleep(delay)
+    if member.id in user_timers:
+        del user_timers[member.id]
+        await move_to_afk(member, afk_channel)
+
+async def play_music(voice_channel):
+    try:
+        # Get list of music files
+        music_files = [f for f in os.listdir(MUSIC_FOLDER) if f.endswith(('.mp3', '.wav', '.ogg', '.flac'))]
+        if not music_files:
+            print("No music files found in music folder")
+            return
+
+        # Check if bot is already in the channel
+        vc = None
+        for client_vc in bot.voice_clients:
+            if client_vc.channel == voice_channel:
+                vc = client_vc
+                break
+
+        if vc is None:
+            # Connect to voice channel if not already connected
+            vc = await voice_channel.connect()
+            print(f"Connected to voice channel: {voice_channel.name}")
+
+        # Play the first music file
+        music_path = os.path.join(MUSIC_FOLDER, music_files[0])
+        vc.play(discord.FFmpegPCMAudio(music_path))
+        print(f"Playing music: {music_files[0]}")
+
+        # Do not disconnect, let the bot stay in the channel
+
+    except Exception as e:
+        print(f"Error playing music: {e}")
+
+@bot.command()
+async def join_afk(ctx):
+    afk_channel = bot.get_channel(AFK_CHANNEL_ID)
+    if afk_channel is None:
+        await ctx.send("AFK channel not found")
+        return
+
+    # Check if bot is already in the channel
+    vc = None
+    for client_vc in bot.voice_clients:
+        if client_vc.channel == afk_channel:
+            vc = client_vc
+            break
+
+    if vc is None:
+        vc = await afk_channel.connect()
+        await ctx.send(f"Joined AFK channel: {afk_channel.name}")
+    else:
+        await ctx.send("Already in AFK channel")
+
+@bot.event
+async def on_ready():
+    print(f'Bot is ready. Logged in as {bot.user}')
+
+@bot.event
+async def on_voice_state_update(member, before, after):
+    afk_channel = bot.get_channel(AFK_CHANNEL_ID)
+    if afk_channel is None:
+        print("AFK channel not found")
+        return
+
+    # If user joins the AFK channel, send a message and play music
+    if after.channel == afk_channel and before.channel != afk_channel:
+        try:
+            await member.send("goodnight darling <3")
+            print(f"Sent welcome message to {member}")
+        except discord.Forbidden:
+            print(f"Cannot send DM to {member}: insufficient permissions")
+        except Exception as e:
+            print(f"Error sending DM to {member}: {e}")
+
+        # Play music in the AFK channel
+        print(f"{member} joined AFK channel, playing music")
+        await play_music(afk_channel)
+
+    # If user leaves the AFK channel, check if channel is empty and disconnect bot
+    elif before.channel == afk_channel and after.channel != afk_channel:
+        # Check if channel is empty (only bot or no one)
+        members_in_channel = [m for m in afk_channel.members if not m.bot]
+        if len(members_in_channel) == 0:
+            # Disconnect bot
+            for vc in bot.voice_clients:
+                if vc.channel == afk_channel:
+                    await vc.disconnect()
+                    print(f"Disconnected from AFK channel: {afk_channel.name}")
+                    break
+
+    # If user joins a voice channel (not AFK)
+    if before.channel is None and after.channel is not None and after.channel != afk_channel:
+        if member.id in user_timers:
+            user_timers[member.id].cancel()
+        user_timers[member.id] = bot.loop.create_task(afk_timer(member, afk_channel))
+
+    # If user leaves voice channel
+    elif before.channel is not None and after.channel is None:
+        if member.id in user_timers:
+            user_timers[member.id].cancel()
+            del user_timers[member.id]
+
+    # If user changes voice state (mute, deafen, etc.) - reset timer
+    elif before.channel == after.channel and before != after and before.channel != afk_channel:
+        if member.id in user_timers:
+            user_timers[member.id].cancel()
+        user_timers[member.id] = bot.loop.create_task(afk_timer(member, afk_channel))
+
+bot.run(TOKEN)
