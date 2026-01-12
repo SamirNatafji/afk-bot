@@ -1,7 +1,6 @@
 import os
 import discord
 import asyncio
-import os
 from discord.ext import commands
 from config import TOKEN, AFK_CHANNEL_ID
 
@@ -12,6 +11,9 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 
 # Dictionary to store timers for each user
 user_timers = {}
+
+# Music URL - استخدم رابط مباشر للموسيقى
+MUSIC_URL = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
 
 async def move_to_afk(member, afk_channel):
     try:
@@ -29,6 +31,38 @@ async def afk_timer(member, afk_channel, delay=420):  # 7 minutes = 420 seconds
     if member.id in user_timers:
         del user_timers[member.id]
         await move_to_afk(member, afk_channel)
+
+async def join_and_play_music(afk_channel):
+    """البوت يدخل القناة ويشغل الموسيقى"""
+    try:
+        # تحقق إذا كان البوت موجود في القناة
+        vc = None
+        for client_vc in bot.voice_clients:
+            if client_vc.channel == afk_channel:
+                vc = client_vc
+                break
+        
+        # دخول القناة إذا لم يكن البوت فيها
+        if vc is None:
+            vc = await afk_channel.connect()
+            print(f"✅ البوت دخل القناة: {afk_channel.name}")
+        
+        # إذا كان البوت يشغل موسيقى بالفعل، عدم تشغيل موسيقى جديدة
+        if vc.is_playing():
+            print("🎵 الموسيقى تعمل بالفعل")
+            return
+        
+        # تشغيل الموسيقى من الرابط
+        audio_source = discord.FFmpegPCMAudio(
+            MUSIC_URL,
+            before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
+            options="-vn"
+        )
+        vc.play(audio_source, after=lambda e: print(f"🎵 انتهت الموسيقى" if e is None else f"❌ خطأ: {e}"))
+        print(f"🎶 تشغيل الموسيقى...")
+        
+    except Exception as e:
+        print(f"❌ خطأ في تشغيل الموسيقى: {e}")
 
 @bot.command()
 async def join_afk(ctx):
@@ -61,7 +95,7 @@ async def on_voice_state_update(member, before, after):
         print("AFK channel not found")
         return
 
-    # If user joins the AFK channel, send a message
+    # If user joins the AFK channel, send a message and play music
     if after.channel == afk_channel and before.channel != afk_channel:
         try:
             await member.send("goodnight darling <3")
@@ -70,6 +104,10 @@ async def on_voice_state_update(member, before, after):
             print(f"Cannot send DM to {member}: insufficient permissions")
         except Exception as e:
             print(f"Error sending DM to {member}: {e}")
+
+        # البوت يدخل ويشغل الموسيقى
+        print(f"{member} دخل قناة AFK، البوت يدخل الآن...")
+        await join_and_play_music(afk_channel)
 
     # If user leaves the AFK channel, check if channel is empty and disconnect bot
     elif before.channel == afk_channel and after.channel != afk_channel:

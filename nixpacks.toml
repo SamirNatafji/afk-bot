@@ -1,0 +1,5 @@
+[nixpacks]
+providers = ["python"]
+
+[nixpacks.build]
+pkgs = ["ffmpeg"]
