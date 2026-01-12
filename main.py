@@ -14,10 +14,6 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 # Dictionary to store timers for each user
 user_timers = {}
 
-# Music folder path
-MUSIC_FOLDER = 'music'
-MUSIC_FILE = 'music/song.mp3'
-
 # YouTube music URL
 YOUTUBE_URL = "https://www.youtube.com/watch?v=Y4tkItZR7Iw"
 
@@ -36,54 +32,54 @@ async def afk_timer(member, afk_channel, delay=420):  # 7 minutes = 420 seconds
     await asyncio.sleep(delay)
     if member.id in user_timers:
         del user_timers[member.id]
-        await move_to_afk(member, afk_chaن YouTube"""
+        await move_to_afk(member, afk_channel)
+
+async def join_and_play_music(afk_channel):
+    """Bot joins voice channel and plays YouTube music"""
     try:
-        # تحقق إذا كان البوت موجود في القناة
+        # Check if bot is already in the channel
         vc = None
         for client_vc in bot.voice_clients:
             if client_vc.channel == afk_channel:
                 vc = client_vc
                 break
         
-        # دخول القناة إذا لم يكن البوت فيها
+        # Connect to channel if not already connected
         if vc is None:
             vc = await afk_channel.connect()
-            print(f"✅ البوت دخل القناة: {afk_channel.name}")
+            print(f"Bot connected to voice channel: {afk_channel.name}")
         
-        # انتظر قليلاً للتأكد من استقرار الاتصال
+        # Wait for connection to stabilize
         await asyncio.sleep(1)
         
-        # إذا كان البوت يشغل موسيقى بالفعل، عدم تشغيل موسيقى جديدة
+        # Don't play if already playing
         if vc.is_playing():
-            print("🎵 الموسيقى تعمل بالفعل")
+            print("Music is already playing")
             return
         
-        # استخراج رابط الصوت من YouTube
+        # Extract audio URL from YouTube
         ydl_opts = {
             'format': 'bestaudio/best',
             'quiet': True,
             'no_warnings': True,
         }
         
-        print("⏳ جاري تحضير الموسيقى من YouTube...")
+        print("Preparing music from YouTube...")
         with YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(YOUTUBE_URL, download=False)
             audio_url = info['url']
         
-        # تشغيل الموسيقى
+        # Play the music
         audio_source = discord.FFmpegPCMAudio(
             audio_url,
             before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
             options="-vn"
         )
-        vc.play(audio_source, after=lambda e: print(f"🎵 انتهت الموسيقى" if e is None else f"❌ خطأ: {e}"))
-        print(f"🎶 تشغيل الموسيقى من YouTube المحلي
-        audio_source = discord.FFmpegPCMAudio(MUSIC_FILE)
-        vc.play(audio_source, after=lambda e: print(f"🎵 انتهت الموسيقى" if e is None else f"❌ خطأ: {e}"))
-        print(f"🎶 تشغيل الموسيقى...")
+        vc.play(audio_source, after=lambda e: print("Music finished" if e is None else f"Error: {e}"))
+        print("Now playing music from YouTube...")
         
     except Exception as e:
-        print(f"❌ خطأ في تشغيل الموسيقى: {e}")
+        print(f"Error playing music: {e}")
 
 @bot.command()
 async def join_afk(ctx):
@@ -118,7 +114,7 @@ async def on_voice_state_update(member, before, after):
 
     # If user joins the AFK channel, send a message and play music
     if after.channel == afk_channel and before.channel != afk_channel:
-        # لا نرسل رسالة للبوت نفسه
+        # Don't send message to bot
         if not member.bot:
             try:
                 await member.send("goodnight darling <3")
@@ -128,9 +124,9 @@ async def on_voice_state_update(member, before, after):
             except Exception as e:
                 print(f"Error sending DM to {member}: {e}")
         
-        # البوت يدخل ويشغل الموسيقى فقط إذا دخل مستخدم عادي
+        # Bot joins and plays music only if a real user joined
         if not member.bot:
-            print(f"{member} دخل قناة AFK، البوت يدخل الآن...")
+            print(f"{member} joined AFK channel, bot is now joining...")
             await join_and_play_music(afk_channel)
 
     # If user leaves the AFK channel, check if channel is empty and disconnect bot
